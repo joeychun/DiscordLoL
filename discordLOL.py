@@ -6,6 +6,7 @@ import requests
 import json
 
 import random
+from random import choice
 
 import time, datetime
 
@@ -15,7 +16,7 @@ from discord import Embed
 from asyncio import sleep
 
 
-APIKey = 'RGAPI-cf8029e9-3170-4e31-a5f0-547104beb46e'
+APIKey = 'RGAPI-b432a25a-b3f6-4477-bd5c-40cac0c9ba8c'
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix='!', intents=intents)
@@ -28,6 +29,9 @@ class InvalidSummonerName(Exception):
     pass
 
 class InvalidMatch(Exception):
+    pass
+
+class InvalidCircle(Exception):
     pass
 
 class NotCircled(Exception):
@@ -509,6 +513,11 @@ champEmojis = {
     "Ekko": "<:Ekko:813197316436918332>",
     "Jax": "<:Jax:813197316470734879>",
     "Illaoi": "<:Illaoi:813197316499832873>",
+    "Jhin": "<:Jhin:815233434788167750>",
+    "Kha'Zix": "<:KhaZix:815233359260942376>",
+    "Qiyana": "<:Qiyana:815233454001750037>",
+    "Vel'Koz": "<:VelKoz:815233494732767272>",
+    "Rek'Sai": "<:RekSai:815233471416762388>",
     "Brand": "<:Brand:813197316503634020>",
     "Draven": "<:Draven:813197316516478986>",
     "Ivern": "<:Ivern:813197316553965578>",
@@ -621,6 +630,7 @@ champEmojis = {
     "Veigar": "<:Veigar:813198361518931988>",
     "Twisted Fate": "<:TwistedFate:813198361544097832>",
     "Vi": "<:Vi:813198361544359936>",
+    "Volibear": "<:Volibear:815221503602851850>",
     "Udyr": "<:Udyr:813198361565593641>",
     "Sion": "<:Sion:813198361598623766>",
     "Zilean": "<:Zilean:813198361724190750>",
@@ -654,6 +664,11 @@ spellEmojis = {
   "Ignite": "<:Ignite:813606194471370762>",
   "Barrier": "<:Barrier:813606194354454568>",
   "Snowball": "<:Snowball:813606194743738418>"
+}
+
+diamonds = {
+    "blue": "<:blue_diamond:815170368574324756>",
+    "red": "<:red_diamond:815169433785335808>"
 }
 
 ### FUNCTIONS
@@ -757,7 +772,6 @@ async def executePeriodically(time, func):
     time: How often the function will be executed
     func: Function that will be periodically executed
     """
-    print(type(func))
     while True:
         await asyncio.sleep(time)
         await func()
@@ -954,10 +968,12 @@ class Match:
         
         infoDict = self.infoDict
 
+        timeTuple = timeChanger(infoDict["gameStartTime"])
         returnDict = {
+            "Color": self.circle.hexcolor,
             "Circle": self.circle.emoji,
             "MatchType": infoDict["gameQueue"]["description"] + " : " + infoDict["gameQueue"]["map"],
-            "Time": timeChanger(infoDict["gameStartTime"])
+            "Time": timeTuple[0] + ":" + timeTuple[1]
         }
 
         participants = infoDict["participants"]
@@ -1004,6 +1020,19 @@ class MatchManager:
             # if circle.matchesEmoji(matchDict["match"].circle.emoji):
             if circle == matchDict["match"].circle:
                 return matchDict
+        return False
+    
+    def circleEmojiMatch(self, circleEmoji):
+        """
+        Returns matchDict of the match that contains the circle with circleEmoji
+        --------------------
+        circleEmoji: Circle emoji of the match that is being found
+        """
+        for gameId, matchDict in self.matches.items():
+            # if circle.matchesEmoji(matchDict["match"].circle.emoji):
+            if circleEmoji == matchDict["match"].circle.emoji:
+                return matchDict
+        return False
     
     def updateTime(self, gameId):
         """
@@ -1028,15 +1057,16 @@ class MatchManager:
         """
         Creates a Match object and stores it in self.matches
         """
-        # Creates a circle for the Match
-        if isCircled and circle is None:
-            circle = circleManager.distribEmoji()
 
-
-        match = self.create(gameId=gameId, infoDict=infoDict, region=region, isCircled=isCircled, circle=circle)
         if self.matchExists(gameId): # Does not store if already existing
             return False
         else:
+            # Creates a circle for the Match
+            if isCircled and circle is None:
+                circle = circleManager.distribEmoji()
+
+            match = self.create(gameId=gameId, infoDict=infoDict, region=region, isCircled=isCircled, circle=circle)
+
             temp = {}
             temp["match"] = match
             temp["updateRequest"] = True
@@ -1120,23 +1150,56 @@ class MatchManager:
         returnStr += "_Ranked Solo: Summoner's Rift_                  14:59\n"
         returnStr += "\n🟦 **Blue Team**\n"
         returnStr += "🟦 <:Aatrox:813197314419064912> FireKnight25         <:Flash:813606194278825984> <:Snowball:813606194743738418>\n"
+        returnStr += "🟦 <:Aatrox:813197314419064912> FireKnight25         <:Flash:813606194278825984> <:Snowball:813606194743738418>\n"
+        returnStr += "🟦 <:Aatrox:813197314419064912> FireKnight25         <:Flash:813606194278825984> <:Snowball:813606194743738418>\n"
         returnStr += "\n🟥 **Red Team**\n"
         returnStr += "🟥 <:Gnar:813197316601151488> FireKnight          <:Ignite:813606194471370762> <:Flash:813606194278825984>\n"
+        returnStr += "🟥 <:Gnar:813197316601151488> FireKnight          <:Ignite:813606194471370762> <:Flash:813606194278825984>\n"
+        returnStr += "🟥 <:Gnar:813197316601151488> FireKnight          <:Ignite:813606194471370762> <:Flash:813606194278825984>\n"
         return returnStr
-
-    def matchInfo(self, circle):
+   
+    def presentMatch(self, circleEmoji):
         """
-        Presents Live Match Information of a match associated to do circle
+        Gives Live Match Information of a match associated to do circle
         Will be used for !opgg match command
-        Returns.... TODO
+        Returns Discord Embed object that will be sent
+        --------------------
+        circleEmoji: Circle emoji of the match that will be presented
         """
-        matchDict = self.circleMatch(circle)
-        match = matchDict["match"]
-        # TODO: PRESNT MATCH
+        matchDict = self.circleEmojiMatch(circleEmoji)
+        if matchDict is False:
+            raise InvalidCircle
+        matchInfo = matchDict["match"].presentMatch()
+        embed = discord.Embed(title="In Game: {0}".format(matchInfo["Circle"]), description=matchInfo["MatchType"] + "　|　　" + matchInfo["Time"], color=matchInfo["Color"])
 
-        firstParticipant = match.firstParticipant()
-        firstSummoner = Summoner(firstParticipant["summonerName"], match.region)
-        k = firstSummoner.getMatchInfo(self)
+        # Create Embed Value Strings for Blue Team
+        blueTeam = matchInfo["BlueTeam"]
+        blueFirstStr = ""
+        blueSecondStr = ""
+        for player in blueTeam:
+            blueFirstStr += "‎\n{0} {1} {2} \n".format(diamonds["blue"], champEmojis[player["champion"]], player["summonerName"])
+            blueSecondStr += "‎\n{0} {1} \n".format(spellEmojis[player["spell1"]], spellEmojis[player["spell2"]])
+
+        # embed.add_field(name="** 🟦 Blue Team**", value="‎\n{1} {0} Just a test \n\n{1} {0} Just like that\n‎".format(champEmojis["Gnar"], diamonds["blue"]), inline=True)
+        # embed.add_field(name="‎", value="‎", inline=True)
+        # embed.add_field(name="‎", value="‎\n{0} {1} \n\n{2} {3}\n\n".format(spellEmojis["Flash"], spellEmojis["Ignite"], spellEmojis["Barrier"], spellEmojis["Flash"]), inline=True)
+
+        embed.add_field(name="** 🟦 Blue Team**", value=blueFirstStr + "‎", inline=True)
+        embed.add_field(name="‎", value="‎", inline=True)
+        embed.add_field(name="‎", value=blueSecondStr + "‎", inline=True)
+
+        redTeam = matchInfo["RedTeam"]
+        redFirstStr = ""
+        redSecondStr = ""
+        for player in redTeam:
+            redFirstStr += "‎\n{0} {1} {2} \n".format(diamonds["red"], champEmojis[player["champion"]], player["summonerName"])
+            redSecondStr += "‎\n{0} {1} \n".format(spellEmojis[player["spell1"]], spellEmojis[player["spell2"]])
+
+        embed.add_field(name="** 🟥 Red Team **", value=redFirstStr + "‎", inline=True)
+        embed.add_field(name="‎", value="‎", inline=True)
+        embed.add_field(name="‎", value=redSecondStr + "‎", inline=True)
+
+        return embed
 
 
     async def deleteOutdated(self): # Will get called every 20 seconds
@@ -1199,20 +1262,22 @@ koreans = [
 americans = [
     Summoner("Anda", "na1")
 ]
-playersList = {"kr": koreans, "na1": "Anda"}
+playersList = {"kr": koreans, "na1": americans}
 
 # MY TWO BOT TEST DISCORD SERVERS
 discordManager1 = DiscordManager(discordServer = 511516851289849856, summonersList = playersList)
 discordManager2 = DiscordManager(discordServer = 457485526606544897, summonersList = playersList)
+discordManager3 = DiscordManager(discordServer = 748374440047280209, summonersList = playersList)
 discordManagerList = [ # WILL EVENTUALLY BECOME A DATABASE WITH SQLite
     discordManager1,
-    discordManager2
+    discordManager2,
+    discordManager3
 ]
 
 
 ### BOT COMMANDS
 
-@bot.command(pass_context=True, aliases=['OPGG'])
+@bot.command(pass_context=True, aliases=['OPGG', 'league', 'LEAGUE', 'lol', 'LOL'])
 async def opgg(ctx, *args):
     """
     Command that will give information about a live match of a summoner, or will execute actions regarding that information
@@ -1235,6 +1300,19 @@ async def opgg(ctx, *args):
                 embed.add_field(name="✅  " + summonerDict["summonerName"], value=summonerDict["presentSummoner"], inline=False)
         
         await ctx.send(embed=embed)
+    
+    if (args[0].lower() == "match" or args[0].lower() == "game") and len(args) == 2:
+        """
+        Command: !opgg match (circle)
+        Function: Gives data of the live match, including time, summoner names, champions
+        """
+        discordManager = discordManagerFinder(ctx.guild.id)
+        try:
+            embed = discordManager.matchManager.presentMatch(args[1])
+            embed.set_footer(text = "Requested by: " + ctx.author.name, icon_url = ctx.author.avatar_url)
+            await ctx.send(embed=embed)
+        except InvalidCircle:
+            await ctx.message.add_reaction("❓")
 
 @bot.command(pass_context=True)
 async def champimgs(ctx, *args):
@@ -1257,28 +1335,6 @@ async def spellimgs(ctx, name):
 
     await ctx.send(spellEmojis[name])
 
-@bot.command(pass_context=True)
-async def test(ctx, *args):
-    """
-    Test of how !opgg match would be templated
-    """
-    await ctx.send(matchManager.testPrintMatch())
-
-@bot.command(pass_context=True)
-async def testembed(ctx, *args):
-    """
-    Test of how !opgg match would be templated (including Embed)
-    """
-    embed = discord.Embed(title="In Game: (O)", description=".", color=0x00ff00)
-    # USE OF BLANK CHARACTER
-    embed.add_field(name="Just a test             <:Flash:813606194278825984>", value="Just a test     <:Flash:813606194278825984>\nJust a test", inline=False)
-    # JUST
-    embed.add_field(name="Just a test", value="Just a test", inline=False)
-    
-    # TODO, maybe: SHOULD HAVE GOOD USE OF THIS " " CHARACTER blank character.
-    await ctx.send(embed=embed)
-
-
 @bot.event
 async def on_ready():
     print('Logged in as')
@@ -1287,10 +1343,8 @@ async def on_ready():
     print('------')
     for discordManager in discordManagerList:
         matchManager = discordManager.matchManager
-        print(type(matchManager))
-        print(type(matchManager.deleteOutdated))
         task = asyncio.create_task(executePeriodically(20, matchManager.deleteOutdated))
     
 
-TOKEN = 'private info"
+TOKEN = 'private'
 bot.run(TOKEN)
