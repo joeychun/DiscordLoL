@@ -16,7 +16,7 @@ from discord import Embed
 from asyncio import sleep
 
 
-APIKey = 'RGAPI-b432a25a-b3f6-4477-bd5c-40cac0c9ba8c'
+APIKey = 'RGAPI-924264f3-433d-4fa4-b840-f53a5d617483'
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix='!', intents=intents)
@@ -35,6 +35,9 @@ class InvalidCircle(Exception):
     pass
 
 class NotCircled(Exception):
+    pass
+
+class LoadingScreen(Exception):
     pass
 
 
@@ -671,6 +674,18 @@ diamonds = {
     "red": "<:red_diamond:815169433785335808>"
 }
 
+hexcolors = {
+    "🔴": 0xff0000,
+    "🟠": 0xffa500,
+    "🟡": 0xffff00,
+    "🟢": 0x00ff00,
+    "🔵": 0x0000ff,
+    "🟣": 0xb19cd9,
+    "🟤": 0xb5651d,
+    "⚫": 0x000000,
+    "⚪": 0xfefefe
+}
+
 ### FUNCTIONS
 def checkValidRegion(region):
     """
@@ -826,7 +841,10 @@ class Summoner:
             if store:
                 # Check if match already stored
                 # if matchManager.matchExists(gameId=infoDict["gameId"])
-                matchManager.append(gameId=infoDict["gameId"], infoDict=infoDict, region=self.region, isCircled=True, circleManager=circleManager, circle=None)
+                try:
+                    matchManager.append(gameId=infoDict["gameId"], infoDict=infoDict, region=self.region, isCircled=True, circleManager=circleManager, circle=None)
+                except LoadingScreen:
+                    raise InvalidMatch
             else:
                 matchManager.create(gameId=infoDict["gameId"], infoDict=infoDict, region=self.region)
 
@@ -1067,6 +1085,9 @@ class MatchManager:
 
             match = self.create(gameId=gameId, infoDict=infoDict, region=region, isCircled=isCircled, circle=circle)
 
+            if int(match.infoDict["gameStartTime"]) == 0: # Game is still in loading screen
+                raise LoadingScreen
+
             temp = {}
             temp["match"] = match
             temp["updateRequest"] = True
@@ -1074,17 +1095,17 @@ class MatchManager:
             self.updateTime(gameId)
             return temp
 
-    def getAll(self, circleManager, playersList):
+    def getAll(self, circleManager, summonersRegionList):
         """
         Goes through every player from the list, stores or updates time info, and returns it
         Returns dictionary with gameId as key and List of summonerName, presentSummoner dictionary as value
         --------------------
         circleManager: Manager of the circles; used to distribute 
-        playersList: Dictionary of region as key and List of Summoners as value
+        summonersRegionList: Dictionary of region as key and List of Summoners as value
         """
         gameIdList = set()  # Will be used to initialize match's updateRequest to True
         sortedByGame = {}
-        for region, players in playersList.items():
+        for region, players in summonersRegionList.items():
             for summoner in players:
                 try:
                     gameId = summoner.getMatchInfo(self, circleManager, store=True)
@@ -1122,16 +1143,16 @@ class MatchManager:
         
         return sortedByGame
     
-    def presentAll(self, circleManager, playersList):
+    def presentAll(self, circleManager, summonersRegionList):
         """
         Goes through every player from the list, stores or updates time info, and returns it
         Returns string of summoner and summoner live match information for each summoner
         --------------------
         circleManager: Manager of the circles; used to distribute 
-        playersList: Dictionary of region as key and List of Summoners as value
+        summonersRegionList: Dictionary of region as key and List of Summoners as value
         """
         returnStr = ""
-        gamesDict = self.getAll(circleManager, playersList)
+        gamesDict = self.getAll(circleManager, summonersRegionList)
         for gameId, summonerDictList in gamesDict.items():
             for summonerDict in summonerDictList:
                 returnStr += summonerDict["summonerName"]
@@ -1158,31 +1179,35 @@ class MatchManager:
         returnStr += "🟥 <:Gnar:813197316601151488> FireKnight          <:Ignite:813606194471370762> <:Flash:813606194278825984>\n"
         return returnStr
    
-    def presentMatch(self, circleEmoji):
+    def presentMatch(self, circleEmoji, summonersRegionList):
         """
         Gives Live Match Information of a match associated to do circle
         Will be used for !opgg match command
         Returns Discord Embed object that will be sent
         --------------------
         circleEmoji: Circle emoji of the match that will be presented
+        summonersRegionList: Dictionary of region and list of summoners
         """
         matchDict = self.circleEmojiMatch(circleEmoji)
         if matchDict is False:
             raise InvalidCircle
         matchInfo = matchDict["match"].presentMatch()
+        region = matchDict["match"].region
         embed = discord.Embed(title="In Game: {0}".format(matchInfo["Circle"]), description=matchInfo["MatchType"] + "　|　　" + matchInfo["Time"], color=matchInfo["Color"])
+
+        # Check if summoner in the game is in the summonerList
+        inList = lambda name : len([summoner for summoner in summonersRegionList[region] if summoner.summonerName == name]) != 0
 
         # Create Embed Value Strings for Blue Team
         blueTeam = matchInfo["BlueTeam"]
         blueFirstStr = ""
         blueSecondStr = ""
         for player in blueTeam:
-            blueFirstStr += "‎\n{0} {1} {2} \n".format(diamonds["blue"], champEmojis[player["champion"]], player["summonerName"])
+            if inList(player["summonerName"]):
+                blueFirstStr += "‎\n{0} {1} __{2}__ \n".format(diamonds["blue"], champEmojis[player["champion"]], player["summonerName"])
+            else:
+                blueFirstStr += "‎\n{0} {1} {2} \n".format(diamonds["blue"], champEmojis[player["champion"]], player["summonerName"])
             blueSecondStr += "‎\n{0} {1} \n".format(spellEmojis[player["spell1"]], spellEmojis[player["spell2"]])
-
-        # embed.add_field(name="** 🟦 Blue Team**", value="‎\n{1} {0} Just a test \n\n{1} {0} Just like that\n‎".format(champEmojis["Gnar"], diamonds["blue"]), inline=True)
-        # embed.add_field(name="‎", value="‎", inline=True)
-        # embed.add_field(name="‎", value="‎\n{0} {1} \n\n{2} {3}\n\n".format(spellEmojis["Flash"], spellEmojis["Ignite"], spellEmojis["Barrier"], spellEmojis["Flash"]), inline=True)
 
         embed.add_field(name="** 🟦 Blue Team**", value=blueFirstStr + "‎", inline=True)
         embed.add_field(name="‎", value="‎", inline=True)
@@ -1192,7 +1217,10 @@ class MatchManager:
         redFirstStr = ""
         redSecondStr = ""
         for player in redTeam:
-            redFirstStr += "‎\n{0} {1} {2} \n".format(diamonds["red"], champEmojis[player["champion"]], player["summonerName"])
+            if inList(player["summonerName"]):
+                redFirstStr += "‎\n{0} {1} __{2}__ \n".format(diamonds["red"], champEmojis[player["champion"]], player["summonerName"])
+            else:
+                redFirstStr += "‎\n{0} {1} {2} \n".format(diamonds["red"], champEmojis[player["champion"]], player["summonerName"])
             redSecondStr += "‎\n{0} {1} \n".format(spellEmojis[player["spell1"]], spellEmojis[player["spell2"]])
 
         embed.add_field(name="** 🟥 Red Team **", value=redFirstStr + "‎", inline=True)
@@ -1201,28 +1229,44 @@ class MatchManager:
 
         return embed
 
+    def alarm(self, circleEmoji):
+        """
+        Returns Embed for alarm message, raises InvalidCircle if the circle is not in matches
+        --------------------
+        circleEmoji: Circle emoji of the match that will be presented
+        """
+        matchDict = self.circleEmojiMatch(circleEmoji)
+        if matchDict is False:
+            raise InvalidCircle
+        
+        embed = discord.Embed(title="Alarm", description="I will alarm you when the match {0} ends".format(matchDict["match"].circle.emoji), color=matchDict["match"].circle.hexcolor)
+        return embed
 
     async def deleteOutdated(self): # Will get called every 20 seconds
         """
         Will check for outdated (already ended) matches in self.matches, and will erase their information
         """
         temp = self.matches.copy()
+        deletedEmojis = []
         for gameId, matchDict in self.matches.items():
             match = matchDict["match"]
             participants = match.infoDict["participants"]
             
             firstParticipant = match.firstParticipant()
             firstSummoner = Summoner(firstParticipant["summonerName"], match.region)
-            # participants[0][0]["summonerId"]
             try:
                 firstSummoner.getMatchInfo(self)
                 continue
             except InvalidMatch:
                 # Match is Invalid; should get deleted
                 match.circle.available = True # The circle used for this ended match is now avail for use
+                
+                deletedEmojis.append(match.circle.emoji)
                 del temp[gameId]
         
         self.matches = temp.copy()
+
+        return deletedEmojis
 
 class DiscordManager:
     """
@@ -1233,11 +1277,36 @@ class DiscordManager:
     summonersList: List of summoners in the server
     """
 
-    def __init__(self, discordServer, summonersList=[]):
+    def __init__(self, discordServer, summonersRegionList=[]):
         self.discordServer = discordServer
         self.matchManager = MatchManager(discordServer = discordServer)
         self.circleManager = CircleManager(discordServer = discordServer)
-        self.summonersList = playersList
+        self.summonersRegionList = summonersRegionList
+        self.alarmRequests = []  # Will contain {"author": __(discord User), "circleStr": __(str)}
+    
+    async def periodicCheck(self):
+        """
+        Will check for outdated (already ended) matches in self.matches, and will erase their information
+        In addition, will check for alarmRequested matches and if they have ended
+        """
+        deletedEmojis = await self.matchManager.deleteOutdated()
+        alarmRequests = self.alarmRequests.copy()
+
+        toDeleteIndex = []
+
+        idx = 0
+        for request in alarmRequests:
+            if request["circleStr"] in deletedEmojis:
+                embed = discord.Embed(title="Alarm", description="{0} has ended!".format(request["circleStr"]), color=hexcolors[request["circleStr"]])
+                toDeleteIndex.append(idx)
+                await request["author"].send(embed=embed)
+            idx += 1
+
+        shiftAccum = 0
+        for idx in toDeleteIndex:
+            self.alarmRequests.pop(idx - shiftAccum)
+            shiftAccum += 1
+
 
 
 ### PLAYERS LIST
@@ -1247,6 +1316,7 @@ koreans = [
     Summoner("Fireknight", "kr"),
     Summoner("EviliotoJeffrey", "kr"),
     Summoner("점멸혐오자", "kr"),
+    Summoner("poochi", "kr"),
     Summoner("joshuah22", "kr"),
     Summoner("돼지야작작먹어", "kr"),
     Summoner("JEEEEFFFFF", "kr"),
@@ -1262,12 +1332,12 @@ koreans = [
 americans = [
     Summoner("Anda", "na1")
 ]
-playersList = {"kr": koreans, "na1": americans}
+testSummoners = {"kr": koreans, "na1": americans}
 
 # MY TWO BOT TEST DISCORD SERVERS
-discordManager1 = DiscordManager(discordServer = 511516851289849856, summonersList = playersList)
-discordManager2 = DiscordManager(discordServer = 457485526606544897, summonersList = playersList)
-discordManager3 = DiscordManager(discordServer = 748374440047280209, summonersList = playersList)
+discordManager1 = DiscordManager(discordServer = 511516851289849856, summonersRegionList = testSummoners)
+discordManager2 = DiscordManager(discordServer = 457485526606544897, summonersRegionList = testSummoners)
+discordManager3 = DiscordManager(discordServer = 748374440047280209, summonersRegionList = testSummoners)
 discordManagerList = [ # WILL EVENTUALLY BECOME A DATABASE WITH SQLite
     discordManager1,
     discordManager2,
@@ -1293,7 +1363,7 @@ async def opgg(ctx, *args):
         """
         embed = discord.Embed(title="Who is in a game of League of Legends?", description="People In This Server:", color=0x00ff00)
         discordManager = discordManagerFinder(ctx.guild.id)
-        gamesDict = discordManager.matchManager.getAll(discordManager.circleManager, playersList)
+        gamesDict = discordManager.matchManager.getAll(discordManager.circleManager, discordManager.summonersRegionList)
 
         for gameId, summonerDictList in gamesDict.items():
             for summonerDict in summonerDictList:
@@ -1305,12 +1375,27 @@ async def opgg(ctx, *args):
         """
         Command: !opgg match (circle)
         Function: Gives data of the live match, including time, summoner names, champions
+        Exception: If a match with (circle) does not exist, reacts with a question mark
         """
         discordManager = discordManagerFinder(ctx.guild.id)
         try:
-            embed = discordManager.matchManager.presentMatch(args[1])
+            embed = discordManager.matchManager.presentMatch(args[1], discordManager.summonersRegionList)
             embed.set_footer(text = "Requested by: " + ctx.author.name, icon_url = ctx.author.avatar_url)
             await ctx.send(embed=embed)
+        except InvalidCircle:
+            await ctx.message.add_reaction("❓")
+    
+    if args[0].lower() == "alarm" and len(args) == 2:
+        """
+        Command: !opgg alarm (circle)
+        Function: Gives a DM to the requested user when the match (circle) ends
+        Exception: If a match with (circle) does not exist, reacts with a question mark
+        """
+        discordManager = discordManagerFinder(ctx.guild.id)
+        try:
+            embed = discordManager.matchManager.alarm(args[1])
+            discordManager.alarmRequests.append({"author": ctx.author, "circleStr": args[1]})
+            await ctx.author.send(embed=embed)
         except InvalidCircle:
             await ctx.message.add_reaction("❓")
 
@@ -1343,7 +1428,8 @@ async def on_ready():
     print('------')
     for discordManager in discordManagerList:
         matchManager = discordManager.matchManager
-        task = asyncio.create_task(executePeriodically(20, matchManager.deleteOutdated))
+        # task = asyncio.create_task(executePeriodically(20, matchManager.deleteOutdated))
+        task = asyncio.create_task(executePeriodically(20, discordManager.periodicCheck))
     
 
 TOKEN = 'private'
