@@ -2926,5 +2926,5 @@ async def on_ready():
         # task = asyncio.create_task(executePeriodically(20, matchManager.deleteOutdated))
         task = asyncio.create_task(executePeriodically(20, discordManager.periodicCheck))
     
-TOKEN = 'NzM5MDY5ODk3NjA2Mjk5NjQ4.XyVGeg.mCOjq_JJDALY4txesQSpG3V23Rw'
+TOKEN = 'private info'
 bot.run(TOKEN)
