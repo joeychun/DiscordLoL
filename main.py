@@ -48,7 +48,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from discord_slash import SlashCommand, SlashContext, cog_ext
 from discord_slash.utils.manage_commands import create_option, create_choice
 
-APIKey = 'RGAPI-0b8aa233-aeda-4680-853e-0e21c1402668'
+APIKey = 'RGAPI-a6714499-50f6-452c-b15c-c214c4651ce2'
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix='!', intents=intents, help_command=None)
@@ -1858,8 +1858,8 @@ embed.add_field(name="__Live Match Commands__", value="\u200b", inline=False)
 embed.add_field(name="!lol rn", value="Presents all summoners saved in the sever summoner list that are currently in a match", inline=False)
 embed.add_field(name="!lol match (circle)", value="Presents information of the match attributed to the circle", inline=False)
 embed.add_field(name="!lol alarm (circle)", value="Alarms user via DM when the match attributed to the circle ends", inline=False)
-embed.add_field(name="!lol (mention)", value="Presents all summoners linked to the mentioned user that are currently in a match", inline=False)
-embed.add_field(name="!lol (role)", value="Presents all summoners linked to users with the role that are currently in a match", inline=False)
+embed.add_field(name="!lol rn (mention)", value="Presents all summoners linked to the mentioned user that are currently in a match", inline=False)
+embed.add_field(name="!lol rn (role)", value="Presents all summoners linked to users with the role that are currently in a match", inline=False)
 embed.set_footer(text="Page 1 / 4")
 helpEmbeds[1] = embed
 
@@ -2277,14 +2277,14 @@ async def lol(ctx, *args):
             embed = Embed(title="Summoner __{0}__ was not linked to you from the beginning.".format(summoner.summonerName), description="\u200b", color=0xff0033)
             await ctx.send(embed=embed)
 
-    elif args[0][0] == "<" and args[0][-1] == ">" and args[0][2] != "&" and len(args) == 1:
+    elif args[0].lower() == "rn" and args[1][0] == "<" and args[1][-1] == ">" and args[1][2] != "&" and len(args) == 2:
         """
-        Command: !lol (mention)
+        Command: !lol rn (mention)
         Function: Gives a list of summoners that are currently in a game for the mentioned user, also giving
                 their live match information
         """
         # Retrieve Info of the mentioned one
-        mention = args[0]
+        mention = args[1]
         temp_id = None
         if '0' <= mention[2] and mention[2] <= '9':
             temp_id = int(mention[2:-1])
@@ -2308,14 +2308,14 @@ async def lol(ctx, *args):
         
         await ctx.send(embed=embed)
 
-    elif args[0][0] == "<" and args[0][-1] == ">" and args[0][2] == "&" and len(args) == 1:
+    elif args[0].lower() == "rn" and args[1][0] == "<" and args[1][-1] == ">" and args[1][2] == "&" and len(args) == 2:
         """
-        Command: !lol (role)
+        Command: !lol rn (role)
         Function: Gives a list of summoners that are currently in a game for the users with the role, also giving
                 their live match information
         """
         # Retrieve Info of the mentioned role
-        role = ctx.guild.get_role(int(args[0][3:-1]))
+        role = ctx.guild.get_role(int(args[1][3:-1]))
         if role is None:
             return
         
@@ -2348,8 +2348,8 @@ async def lol(ctx, *args):
         embed.add_field(name="!lol rn", value="Presents all summoners saved in the sever summoner list that are currently in a match", inline=False)
         embed.add_field(name="!lol match (circle)", value="Presents information of the match attributed to the circle", inline=False)
         embed.add_field(name="!lol alarm (circle)", value="Alarms user via DM when the match attributed to the circle ends", inline=False)
-        embed.add_field(name="!lol (mention)", value="Presents all summoners linked to the mentioned user that are currently in a match", inline=False)
-        embed.add_field(name="!lol (role)", value="Presents all summoners linked to users with the role that are currently in a match", inline=False)
+        embed.add_field(name="!lol rn (mention)", value="Presents all summoners linked to the mentioned user that are currently in a match", inline=False)
+        embed.add_field(name="!lol rn (role)", value="Presents all summoners linked to users with the role that are currently in a match", inline=False)
         embed.set_footer(text="Page 1 / 4")
         
         msg = await ctx.send(embed=embed)
@@ -2367,8 +2367,8 @@ async def help(ctx):
     embed.add_field(name="!lol rn", value="Presents all summoners saved in the sever summoner list that are currently in a match", inline=False)
     embed.add_field(name="!lol match (circle)", value="Presents information of the match attributed to the circle", inline=False)
     embed.add_field(name="!lol alarm (circle)", value="Alarms user via DM when the match attributed to the circle ends", inline=False)
-    embed.add_field(name="!lol (mention)", value="Presents all summoners linked to the mentioned user that are currently in a match", inline=False)
-    embed.add_field(name="!lol (role)", value="Presents all summoners linked to users with the role that are currently in a match", inline=False)
+    embed.add_field(name="!lol rn (mention)", value="Presents all summoners linked to the mentioned user that are currently in a match", inline=False)
+    embed.add_field(name="!lol rn (role)", value="Presents all summoners linked to users with the role that are currently in a match", inline=False)
     embed.set_footer(text="Page 1 / 4")
     
     msg = await ctx.send(embed=embed)
@@ -2446,25 +2446,117 @@ regionChoices=[
     ),
 ]
 
-@slash.subcommand(base="lol", name="rn", description="Presents all summoners saved in the sever summoner list that are currently in a match")
-async def _lolRn(ctx: SlashContext):
+
+@slash.subcommand(base="lol", name="help", description="Gets all \"lol\" commands")
+async def _lolHelp(ctx: SlashContext):
+    """
+    Command: !lol help
+    Function: Gets all "!lol" commands
+    """
+    embed=Embed(title="Commands", description="\u200b", color=0xb09e99)
+
+    # Page 1
+    embed.add_field(name="__Live Match Commands__", value="\u200b", inline=False)
+    embed.add_field(name="!lol rn", value="Presents all summoners saved in the sever summoner list that are currently in a match", inline=False)
+    embed.add_field(name="!lol match (circle)", value="Presents information of the match attributed to the circle", inline=False)
+    embed.add_field(name="!lol alarm (circle)", value="Alarms user via DM when the match attributed to the circle ends", inline=False)
+    embed.add_field(name="!lol rn (mention)", value="Presents all summoners linked to the mentioned user that are currently in a match", inline=False)
+    embed.add_field(name="!lol rn (role)", value="Presents all summoners linked to users with the role that are currently in a match", inline=False)
+    embed.set_footer(text="Page 1 / 4")
+    
+    msg = await ctx.send(embed=embed)
+    await msg.add_reaction("◀️")
+    await msg.add_reaction("▶️")
+
+    helpsInfo[msg.id] = {"page": 1, "msg": msg}
+
+
+
+@slash.subcommand(base="lol", name="rn", description="Presents summoners saved in the sever summoner list that are currently in a match",
+            options=[
+                create_option(
+                    name="filter",
+                    description="Mention of Discord User or Role",
+                    option_type=3,
+                    required=False
+                )
+            ])
+async def _lolRn(ctx: SlashContext, filter=None):
     """
     Command: !lol rn
     Function: Gives a list of summoners that are currently in a game, also giving
             their live match information
     """
-    await ctx.defer()
-    embed = discord.Embed(title="Who is in a game of League of Legends?", description="People In This Server:", color=0xb09e99)
-    discordManager = discordManagerFinder(ctx.guild.id)
-    gamesDict = await discordManager.matchManager.getAll2(discordManager.circleManager, discordManager.discordServer)
+    if filter is None:
+        # All Users
+        await ctx.defer()
+        embed = discord.Embed(title="Who is in a game of League of Legends?", description="People In This Server:", color=0xb09e99)
+        discordManager = discordManagerFinder(ctx.guild.id)
+        gamesDict = await discordManager.matchManager.getAll2(discordManager.circleManager, discordManager.discordServer)
 
-    for gameId, summonerDictList in gamesDict.items():
-        for summonerDict in summonerDictList:
-            embed.add_field(name="✅  " + summonerDict["summonerName"], value=summonerDict["presentSummoner"], inline=False)
+        for gameId, summonerDictList in gamesDict.items():
+            for summonerDict in summonerDictList:
+                embed.add_field(name="✅  " + summonerDict["summonerName"], value=summonerDict["presentSummoner"], inline=False)
     
-    await ctx.send(embed=embed)
+        await ctx.send(embed=embed)
+    elif filter[0] == "<" and filter[-1] == ">" and filter[2] != "&":
+        # User RN
+        await ctx.defer()
 
+        # Retrieve Info of the mentioned one
+        mention = filter
+        temp_id = None
+        if '0' <= mention[2] and mention[2] <= '9':
+            temp_id = int(mention[2:-1])
+        else:
+            temp_id = int(mention[3:-1])
 
+        user = ctx.guild.get_member(temp_id)
+        if user is None:
+            return
+        
+
+        embed = discord.Embed(title="Who is in a game of League of Legends?", description="Accounts for {0}:".format(user.mention), color=0xb09e99)
+        discordManager = discordManagerFinder(ctx.guild.id)
+        querySet = await discordServerUsersSummoners(ctx.guild.id, [user.id])
+
+        gamesDict = await discordManager.matchManager.getSome(discordManager.circleManager, discordManager.discordServer, querySet)
+
+        for gameId, summonerDictList in gamesDict.items():
+            for summonerDict in summonerDictList:
+                embed.add_field(name="✅  " + summonerDict["summonerName"], value=summonerDict["presentSummoner"], inline=False)
+        
+        await ctx.send(embed=embed)
+
+    elif filter[0] == "<" and filter[-1] == ">" and filter[2] == "&":
+        # Role RN
+        await ctx.defer()
+
+        # Retrieve Info of the mentioned role
+        role = ctx.guild.get_role(int(filter[3:-1]))
+        if role is None:
+            return
+        
+        usersIds = []
+        for user in ctx.guild.members:
+            if role in user.roles:
+                usersIds.append(user.id)
+
+        embed = discord.Embed(title="Who is in a game of League of Legends?", description="People with role {0}:".format(role.mention), color=0xb09e99)
+        discordManager = discordManagerFinder(ctx.guild.id)
+        querySet = await discordServerUsersSummoners(ctx.guild.id, usersIds)
+
+        gamesDict = await discordManager.matchManager.getSome(discordManager.circleManager, discordManager.discordServer, querySet)
+
+        for gameId, summonerDictList in gamesDict.items():
+            for summonerDict in summonerDictList:
+                embed.add_field(name="✅  " + summonerDict["summonerName"], value=summonerDict["presentSummoner"], inline=False)
+        
+        await ctx.send(embed=embed)
+    
+    else:
+        embed=Embed(title="Filter must be a mention of either a user or a role", description="\u200b", color=0xff0033)
+        await ctx.send(embed=embed)
 
 @slash.subcommand(base="lol", name="match", description="Presents information of the match attributed to the circle",
         options=[
